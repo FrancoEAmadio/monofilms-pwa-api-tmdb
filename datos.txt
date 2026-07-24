@@ -1,0 +1,5 @@
+Carrera: Tecnicatura Superior en Diseño Web y Programación
+Materia: Aplicaciones Web Progresivas
+Estudiante: Amadio, Franco Ezequiel
+Fecha: 19/06/2026
+Carácter de entrega: 2° Parcial Práctico (PWA)

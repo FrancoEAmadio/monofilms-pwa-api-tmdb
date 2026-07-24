@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monofilms | Inicio</title>
+  
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#040714">
+  
+  <link rel="icon" type="image/png" href="imagenes/ICONOS/LOGO-APP.png">
+  <link rel="apple-touch-icon" href="imagenes/ICONOS/LOGO-APP.png">
+  
+  <link href="https://fonts.googleapis.com/css2?family=Jockey+One&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+  <div class="header-fijo-wrapper" id="header-wrapper">
+    <header class="navbar-superior">
+      <div class="navbar-inner">
+        <div class="logo-area" style="cursor:default;">
+          <img src="LOGO-APP.png" alt="MonoFilms Logo" class="avatar-mono">
+          <h1 class="logo-texto">Mono<span>Films</span></h1>
+        </div>
+        
+        <nav class="selector-tipo-contenido">
+          <button class="tab-tipo active" data-type="movie">Películas</button>
+          <button class="tab-tipo" data-type="tv">Series</button>
+        </nav>
+
+        <div class="header-derecha">
+          <div class="buscador-caja-desktop">
+            <input type="text" id="peliculaInput" placeholder="Buscar por título..." autocomplete="off">
+            <button id="buscarBtn">Buscar</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <nav class="subnav-generos" id="nav-categorias">
+      <div class="generos-riel">
+        <span class="cat-item active" data-genre="">Populares</span>
+        <span class="cat-item" data-genre="accion">Acción</span>
+        <span class="cat-item" data-genre="comedia">Comedia</span>
+        <span class="cat-item" data-genre="animacion">Animación</span>
+        <span class="cat-item" data-genre="cienciaficcion">Ciencia Ficción</span>
+      </div>
+    </nav>
+  </div>
+
+  <main id="contenido-principal">
+    
+    <section id="resultados-busqueda" style="display: none;">
+      <div class="seccion-cabecera-flex">
+        <h2 class="seccion-titulo">Resultados de la búsqueda</h2>
+        <button class="btn-cerrar-busqueda" id="btnVolverHome">Volver al Inicio</button>
+      </div>
+      <div id="peliculas-buscadas" class="grilla-peliculas-busqueda"></div>
+    </section>
+
+    <div id="bloques-estandar">
+      
+      <section class="hero-slider-container" id="hero-slider">
+        <button class="slider-arrow arrow-left" id="btnPrevHero" aria-label="Anterior">
+          <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </button>
+        <div class="slider-wrapper" id="sliderWrapper"></div>
+        <button class="slider-arrow arrow-right" id="btnNextHero" aria-label="Siguiente">
+          <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </button>
+        <div class="slider-dots" id="sliderDots"></div>
+      </section>
+
+      <div class="contenedor-carruseles">
+        
+        <section class="fila-carrusel-seccion">
+          <h2 class="seccion-titulo" id="titulo-carrusel-1">Populares</h2>
+          <div class="slider-row-wrapper">
+            <button class="carrusel-arrow left" aria-label="Anterior"><svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+            <div class="carrusel-horizontal-contenedor">
+              <div class="carrusel-riel" id="riel-populares"></div>
+            </div>
+            <button class="carrusel-arrow right" aria-label="Siguiente"><svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
+          </div>
+        </section>
+
+        <section class="fila-carrusel-seccion">
+          <h2 class="seccion-titulo">Acción</h2>
+          <div class="slider-row-wrapper">
+            <button class="carrusel-arrow left" aria-label="Anterior"><svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+            <div class="carrusel-horizontal-contenedor">
+              <div class="carrusel-riel" id="riel-accion"></div>
+            </div>
+            <button class="carrusel-arrow right" aria-label="Siguiente"><svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
+          </div>
+        </section>
+
+        <section class="fila-carrusel-seccion">
+          <h2 class="seccion-titulo">Comedia</h2>
+          <div class="slider-row-wrapper">
+            <button class="carrusel-arrow left" aria-label="Anterior"><svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+            <div class="carrusel-horizontal-contenedor">
+              <div class="carrusel-riel" id="riel-comedia"></div>
+            </div>
+            <button class="carrusel-arrow right" aria-label="Siguiente"><svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
+          </div>
+        </section>
+
+        <section class="fila-carrusel-seccion">
+          <h2 class="seccion-titulo">Animación</h2>
+          <div class="slider-row-wrapper">
+            <button class="carrusel-arrow left" aria-label="Anterior"><svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+            <div class="carrusel-horizontal-contenedor">
+              <div class="carrusel-riel" id="riel-animacion"></div>
+            </div>
+            <button class="carrusel-arrow right" aria-label="Siguiente"><svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
+          </div>
+        </section>
+
+        <section class="fila-carrusel-seccion">
+          <h2 class="seccion-titulo">Ciencia Ficción</h2>
+          <div class="slider-row-wrapper">
+            <button class="carrusel-arrow left" aria-label="Anterior"><svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+            <div class="carrusel-horizontal-contenedor">
+              <div class="carrusel-riel" id="riel-cienciaficcion"></div>
+            </div>
+            <button class="carrusel-arrow right" aria-label="Siguiente"><svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <div id="modalFicha" class="modal-overlay" style="display: none;">
+    <div class="modal-contenido">
+      <button class="btn-cerrar-modal" id="btnCerrarModal">×</button>
+      <div id="modalCuerpo"></div>
+    </div>
+  </div>
+
+  <footer class="footer-minimalista">
+    <div class="footer-contenedor">
+      <div class="footer-fila-enlaces">
+        <a href="#">Política de privacidad</a>
+        <a href="#">Términos de uso</a>
+        <a href="#">Política de cookies</a>
+        <a href="#">Acuerdo de suscripción</a>
+        <a href="./offline.html">Ayuda</a> 
+        <a href="#">Dispositivos compatibles</a>
+        <a href="#">Acerca de Monofilms</a>
+        <a href="#">Publicidad personalizada</a>
+      </div>
+      <div class="footer-fila-inferior">
+        <p>© 2026 Monofilms. Todos los derechos reservados.</p>
+      </div>
+    </div>
+  </footer>
+
+  <nav class="navbar-inferior">
+    <div class="nav-inf-item active-inf" id="nav-root">
+      <img src="home.png" alt="Inicio" class="icono-img default" style="display:none;">
+      <img src="HOMECELESTE.png" alt="Inicio" class="icono-img activo">
+      <span class="nav-label">Inicio</span>
+    </div>
+    <div class="nav-inf-item" id="nav-buscar-mob">
+      <img src="busqueda.png" alt="Buscar" class="icono-img default">
+      <img src="BUSQUEDACELESTE.png" alt="Buscar" class="icono-img activo" style="display:none;">
+      <span class="nav-label">Buscar</span>
+    </div>
+    <div class="nav-inf-item" id="nav-favoritos">
+      <img src="favoritos.png" alt="Favoritos" class="icono-img default">
+      <img src="FAVORITOSCELESTE.png" alt="Favoritos" class="icono-img activo" style="display:none;">
+      <span class="nav-label">Favoritos</span>
+    </div>
+    <div class="nav-inf-item" id="nav-perfil">
+      <svg class="icono-img default" viewBox="0 0 24 24" fill="#94a3b8"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      <svg class="icono-img activo" viewBox="0 0 24 24" fill="#22d3ee" style="display:none;"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      <span class="nav-label">Perfil</span>
+    </div>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>
