@@ -5,11 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monofilms | Sin conexión</title>
     <link rel="manifest" href="manifest.json">
-
-    <!-- Favicon explícito en todos los formatos -->
-    <link rel="icon" type="image/png" sizes="192x192" href="./imagenes/ICONOS/LOGO-APP.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="./imagenes/ICONOS/LOGO-APP.png">
-    <link rel="apple-touch-icon" sizes="192x192" href="./imagenes/ICONOS/LOGO-APP.png">
+    <link rel="icon" type="image/png" href="LOGO-APP.png">
+    <link rel="apple-touch-icon" href="LOGO-APP.png">
 
     <link href="https://fonts.googleapis.com/css2?family=Jockey+One&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="estilos.css">
@@ -69,7 +66,6 @@
       btn.style.opacity = '0.5';
       btn.disabled = true;
 
-      // Fetch real contra index.html para verificar conectividad verdadera
       fetch('./index.html', { cache: 'no-store', signal: AbortSignal.timeout(5000) })
         .then(res => {
           if (res.ok) {
