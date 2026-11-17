@@ -361,6 +361,8 @@ function mostrarVistaLista(titulo) {
     $('bloques-estandar').hidden = true;
     $('resultados-busqueda').hidden = false;
     $('tituloResultados').textContent = titulo;
+    // No hay una portada aparte: el botón vuelve a la sección que estaba mirando
+    $('btnVolverHome').textContent = tipoContenido === 'tv' ? 'Volver a series' : 'Volver a películas';
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
