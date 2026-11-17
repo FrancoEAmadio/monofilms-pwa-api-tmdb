@@ -335,7 +335,7 @@ body.menu-abierto .menu-lateral { transform: none; box-shadow: 20px 0 50px rgba(
 .seccion-cabecera-flex .seccion-titulo { margin-bottom: 0; padding-left: 0; }
 .btn-cerrar-busqueda { background: none; border: 1px solid var(--text-muted); color: var(--text-primary); padding: 8px 20px; border-radius: 20px; cursor: pointer; transition: 0.2s; font-weight: 600; font-size: 0.85rem; white-space: nowrap; }
 .btn-cerrar-busqueda:hover { background: #fff; color: #000; border-color: #fff; }
-.grilla-peliculas-busqueda { display: grid; grid-template-columns: repeat(6,1fr); gap: 14px; container-type: inline-size; }
+.grilla-peliculas-busqueda { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 14px; container-type: inline-size; }
 .grilla-peliculas-busqueda .peli-card-horizontal { width: auto; }
 .mensaje-vacio { grid-column: 1 / -1; text-align: center; color: var(--text-sub); padding: 48px 16px; line-height: 1.6; }
 .mensaje-vacio svg { font-size: 3rem; color: var(--text-muted); margin-bottom: 12px; }
@@ -427,7 +427,7 @@ body.menu-abierto .menu-lateral { transform: none; box-shadow: 20px 0 50px rgba(
 /* Notebook / PC chica */
 @media (max-width: 1280px) {
     :root { --cols: 5; }
-    .grilla-peliculas-busqueda { grid-template-columns: repeat(5,1fr); }
+    .grilla-peliculas-busqueda { grid-template-columns: repeat(5,minmax(0,1fr)); }
 }
 
 /* Tablet (vertical y horizontal chica): sin buscador largo, con lupa */
@@ -438,7 +438,7 @@ body.menu-abierto .menu-lateral { transform: none; box-shadow: 20px 0 50px rgba(
     .navbar-inner { padding: 0 3%; }
     #contenido-principal { padding: 0 3%; }
     .generos-riel { padding: 0 3%; gap: 26px; }
-    .grilla-peliculas-busqueda { grid-template-columns: repeat(4,1fr); }
+    .grilla-peliculas-busqueda { grid-template-columns: repeat(4,minmax(0,1fr)); }
 
     .hero-slider-container { height: 46vh; min-height: 380px; max-height: 560px; }
     .slide-overlay {
@@ -492,7 +492,7 @@ body.menu-abierto .menu-lateral { transform: none; box-shadow: 20px 0 50px rgba(
 
     /* Resultados y favoritos */
     #resultados-busqueda { padding-top: 16px; }
-    .grilla-peliculas-busqueda { grid-template-columns: repeat(2,1fr); gap: 12px; }
+    .grilla-peliculas-busqueda { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
     .seccion-cabecera-flex { margin-bottom: 16px; }
     .btn-cerrar-busqueda { padding: 7px 14px; font-size: 0.8rem; }
 

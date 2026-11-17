@@ -139,7 +139,7 @@ function registrarContenido(item) {
 function crearTarjeta(pelicula) {
     const titulo     = escaparHTML(pelicula.title || pelicula.name || 'Título desconocido');
     const anio       = (pelicula.release_date || pelicula.first_air_date || '').split('-')[0] || 'S/D';
-    const puntuacion = pelicula.vote_average ? pelicula.vote_average.toFixed(1) : '0.0';
+    const puntuacion = pelicula.vote_average ? '⭐ ' + pelicula.vote_average.toFixed(1) : 'Nuevo';
     const urlPoster  = pelicula.poster_path ? `${URL_POSTER}${pelicula.poster_path}` : POSTER_FALLBACK;
 
     registrarContenido(pelicula);
@@ -155,7 +155,7 @@ function crearTarjeta(pelicula) {
                 <h3 class="peli-titulo-tarjeta">${titulo}</h3>
                 <div class="peli-meta-flex">
                     <span>${anio}</span>
-                    <span class="peli-nota-badge">⭐ ${puntuacion}</span>
+                    <span class="peli-nota-badge">${puntuacion}</span>
                 </div>
             </div>
         </article>`;
@@ -181,7 +181,7 @@ function montarHero() {
                     <div class="slide-info-block">
                         <h2>${titulo}</h2>
                         <div class="slide-meta-datos">
-                            <span class="badge-slide-nota">⭐ ${(pelicula.vote_average || 0).toFixed(1)}</span>
+                            <span class="badge-slide-nota">${pelicula.vote_average ? '⭐ ' + pelicula.vote_average.toFixed(1) : 'Estreno'}</span>
                             <span class="slide-anio-txt">Tendencia global</span>
                         </div>
                         <p class="slide-resumen">${escaparHTML(pelicula.overview || 'Sin sinopsis disponible en español.')}</p>
@@ -268,7 +268,7 @@ window.abrirFicha = function(idPelicula) {
             <h2 class="ficha-titulo" id="fichaTitulo">${titulo}</h2>
             <div class="ficha-tags">
                 <span>📅 ${fechaTxt}</span>
-                <span>⭐ ${(pelicula.vote_average || 0).toFixed(1)} / 10</span>
+                <span>${pelicula.vote_average ? '⭐ ' + pelicula.vote_average.toFixed(1) + ' / 10' : 'Sin calificaciones todavía'}</span>
             </div>
             <p class="ficha-sinopsis">${escaparHTML(pelicula.overview || 'Sin sinopsis en español disponible.')}</p>
             <button class="btn-favorito ${fav ? 'activo' : ''}" data-fav="${id}" aria-pressed="${fav}">
