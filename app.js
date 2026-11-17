@@ -42,7 +42,7 @@ function escaparHTML(texto) {
     return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-const esPantallaChica = () => window.matchMedia('(max-width: 768px)').matches;
+const esPantallaChica = () => window.matchMedia('(max-width: 520px)').matches;
 
 // ── API ───────────────────────────────────────────────────────────────────────
 async function consultarAPI(endpoint, parametros = {}, señalAborto = null) {
@@ -501,7 +501,8 @@ function abrirBuscador() {
     $('inputBuscarOverlay').value = '';
     mostrarSugerencias('');
     overlay.hidden = false;
-    document.body.classList.add('modal-abierto');
+    document.body.classList.add('modal-abierto', 'buscador-abierto');
+    marcarNavInferior('buscar');
     requestAnimationFrame(() => {
         overlay.classList.add('visible');
         $('inputBuscarOverlay').focus();
@@ -545,8 +546,9 @@ function cerrarBuscador() {
     const overlay = $('buscadorOverlay');
     if (overlay.hidden) return;
     overlay.classList.remove('visible');
-    document.body.classList.remove('modal-abierto');
+    document.body.classList.remove('modal-abierto', 'buscador-abierto');
     $('inputBuscarOverlay').blur();
+    marcarNavInferior(vistaActual === 'inicio' ? tipoContenido : vistaActual === 'favoritos' ? 'favoritos' : 'buscar');
     setTimeout(() => { overlay.hidden = true; }, 200);
 }
 
@@ -562,6 +564,7 @@ function mostrarAviso(texto) {
 
 // ── ACCIONES COMPARTIDAS (menú, pie, barra inferior) ────────────────────────
 function ejecutarAccion(accion, dato) {
+    if (accion !== 'buscar' && accion !== 'acerca') cerrarBuscador();
     switch (accion) {
         case 'tipo':      cambiarTipo(dato.type); break;
         case 'genero':    irAGenero(dato.genre ?? ''); break;
@@ -706,10 +709,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Favoritos desde la cabecera
-    $('btnFavoritosHeader')?.addEventListener('click', mostrarFavoritos);
+    $('btnFavoritosHeader')?.addEventListener('click', () => { cerrarBuscador(); mostrarFavoritos(); });
 
     // Logo y "Volver al inicio"
-    $('brand-logo')?.addEventListener('click', e => { e.preventDefault(); volverAlInicio(vistaActual !== 'inicio'); });
+    $('brand-logo')?.addEventListener('click', e => { e.preventDefault(); cerrarBuscador(); volverAlInicio(vistaActual !== 'inicio'); });
+
+    // Géneros: también se pueden arrastrar con el mouse
+    const rielGeneros = document.querySelector('.generos-riel');
+    let arrastreGen = null;
+    rielGeneros?.addEventListener('mousedown', e => { arrastreGen = { x: e.pageX, s: rielGeneros.scrollLeft, movido: false }; });
+    window.addEventListener('mouseup', () => { setTimeout(() => { arrastreGen = null; }, 0); });
+    rielGeneros?.addEventListener('mousemove', e => {
+        if (!arrastreGen) return;
+        const dx = e.pageX - arrastreGen.x;
+        if (Math.abs(dx) > 4) arrastreGen.movido = true;
+        rielGeneros.scrollLeft = arrastreGen.s - dx;
+    });
+    rielGeneros?.addEventListener('click', e => { if (arrastreGen?.movido) { e.stopPropagation(); e.preventDefault(); } }, true);
     $('btnVolverHome')?.addEventListener('click', () => volverAlInicio(false));
 
     // Menú lateral
@@ -720,6 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Barra inferior del teléfono
     document.querySelectorAll('.nav-inf-item').forEach(b => b.addEventListener('click', () => {
         const destino = b.dataset.nav;
+        if (destino !== 'buscar') cerrarBuscador();
         if (destino === 'buscar') abrirBuscador();
         else if (destino === 'favoritos') mostrarFavoritos();
         else cambiarTipo(destino);

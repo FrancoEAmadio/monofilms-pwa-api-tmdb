@@ -75,7 +75,7 @@
         <button class="cat-item" data-genre="accion">Acción</button>
         <button class="cat-item" data-genre="comedia">Comedia</button>
         <button class="cat-item" data-genre="animacion">Animación</button>
-        <button class="cat-item" data-genre="cienciaficcion"><span class="txt-largo">Ciencia Ficción</span><span class="txt-corto">Sci-Fi</span></button>
+        <button class="cat-item" data-genre="cienciaficcion">Ciencia Ficción</button>
       </div>
     </nav>
   </div>
@@ -207,7 +207,12 @@
         <h2 class="ficha-titulo" id="acercaTitulo">Acerca de MonoFilms</h2>
         <p class="ficha-sinopsis">MonoFilms es una aplicación web progresiva para explorar películas y series populares, buscar títulos y guardar favoritos. Se puede instalar en el teléfono o la computadora y funciona sin conexión con lo último que viste.</p>
         <p class="ficha-sinopsis">Diseño y desarrollo: <a href="https://cv-amadio-franco.vercel.app" target="_blank" rel="noopener">Franco Ezequiel Amadio</a>.</p>
-        <p class="ficha-sinopsis aviso-tmdb">Este producto usa la API de TMDB, pero no está avalado ni certificado por TMDB.</p>
+        <div class="acerca-links">
+          <a href="./offline.html">Ayuda sin conexión</a>
+          <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">Datos de TMDB</a>
+          <a href="https://github.com/FrancoEAmadio/monofilms-pwa-api-tmdb" target="_blank" rel="noopener">Código en GitHub</a>
+        </div>
+        <p class="ficha-sinopsis aviso-tmdb">Este producto usa la API de TMDB, pero no está avalado ni certificado por TMDB. © 2026 MonoFilms.</p>
       </div>
     </div>
   </div>
@@ -215,13 +220,6 @@
   <!-- ── PIE ──────────────────────────────────────────────────────────────── -->
   <footer class="footer-minimalista">
     <div class="footer-contenedor">
-      <div class="footer-marca">
-        <img src="LOGO-APP.png" alt="" class="avatar-mono">
-        <div>
-          <span class="logo-texto">Mono<span>Films</span></span>
-          <p>Películas y series para descubrir y guardar.</p>
-        </div>
-      </div>
       <div class="footer-fila-enlaces">
         <button type="button" class="footer-link" data-accion="acerca">Acerca de MonoFilms</button>
         <button type="button" class="footer-link" data-accion="favoritos">Mis favoritos</button>

@@ -147,8 +147,7 @@ svg { width: 1em; height: 1em; fill: currentColor; flex-shrink: 0; }
     transition: color var(--ease); padding: 4px 0;
 }
 .cat-item:hover, .cat-item.active { color: var(--accent); }
-.txt-corto { display: none; }
-body.busqueda-activa .subnav-generos { display: none !important; }
+body.busqueda-activa .subnav-generos, body.buscador-abierto .subnav-generos { display: none !important; }
 
 /* ── MENÚ LATERAL ──────────────────────────────────────────────────────────── */
 .menu-fondo {
@@ -184,8 +183,9 @@ body.menu-abierto .menu-lateral { transform: none; box-shadow: -20px 0 50px rgba
 
 /* ── BUSCADOR A PANTALLA COMPLETA ──────────────────────────────────────────── */
 .buscador-overlay {
-    position: fixed; inset: 0; z-index: 2600; background: var(--bg-base);
-    padding: calc(12px + env(safe-area-inset-top)) 16px 0;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 1150; background: var(--bg-base);
+    top: calc(var(--alto-nav) + env(safe-area-inset-top));
+    padding: 14px 16px 0;
     opacity: 0; transition: opacity 0.2s ease;
     display: flex; flex-direction: column; align-items: center;
 }
@@ -408,6 +408,12 @@ body.menu-abierto .menu-lateral { transform: none; box-shadow: -20px 0 50px rgba
 .ficha-sinopsis { font-size: 0.92rem; color: var(--text-sub); line-height: 1.6; }
 .ficha-sinopsis + .ficha-sinopsis { margin-top: 12px; }
 .ficha-sinopsis a { color: var(--accent); }
+.acerca-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 14px; }
+.acerca-links a {
+    color: var(--text-primary); text-decoration: none; font-size: 0.85rem; font-weight: 600;
+    border: 1px solid var(--border); border-radius: 18px; padding: 8px 14px;
+}
+.acerca-links a:hover { border-color: var(--accent); color: var(--accent); }
 .aviso-tmdb { font-size: 0.78rem !important; color: var(--text-muted) !important; }
 .btn-favorito {
     margin-top: 22px; display: inline-flex; align-items: center; gap: 10px;
@@ -432,7 +438,6 @@ body.menu-abierto .menu-lateral { transform: none; box-shadow: -20px 0 50px rgba
 /* ── FOOTER ──────────────────────────────────────────────────────────────────── */
 .footer-minimalista { background: var(--bg-base); margin-top: 40px; padding: 40px 0 30px; width: 100%; display: flex; flex-direction: column; align-items: center; }
 .footer-contenedor { width: 100%; max-width: var(--max-w); padding: 0 4%; display: flex; flex-direction: column; }
-.footer-marca { display: none; }
 .footer-fila-enlaces { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px 36px; width: 100%; }
 .footer-link { background: none; border: none; padding: 0; cursor: pointer; color: var(--text-sub); text-decoration: none; font-size: 0.85rem; font-family: 'Inter', sans-serif; font-weight: 500; transition: color 0.2s; }
 .footer-link:hover { color: var(--accent); }
@@ -476,6 +481,8 @@ body.menu-abierto .menu-lateral { transform: none; box-shadow: -20px 0 50px rgba
     #contenido-principal { padding: 0 3%; }
     .generos-riel { padding: 0 3%; gap: 26px; }
     .grilla-peliculas-busqueda { grid-template-columns: repeat(4,minmax(0,1fr)); }
+    .footer-minimalista { display: none; }
+    #contenido-principal { padding-bottom: 32px; }
 
     .hero-slider-container { height: 46vh; min-height: 380px; max-height: 560px; }
     .slide-overlay {
@@ -498,15 +505,18 @@ body.menu-abierto .menu-lateral { transform: none; box-shadow: -20px 0 50px rgba
     .avatar-mono { width: 28px; height: 30px; }
     .selector-tipo-contenido, .btn-favoritos-header { display: none; }
 
-    /* Géneros: entran todos en una sola fila, con una rayita bajo el activo */
-    .generos-riel { justify-content: space-between; gap: 6px; padding: 0 16px; overflow: hidden; }
-    .cat-item { position: relative; font-size: 0.74rem; letter-spacing: 0.04em; padding: 13px 0; }
+    /* Géneros: fila que se desliza con el dedo, con una rayita bajo el activo */
+    .generos-riel {
+        justify-content: flex-start; gap: 22px; padding: 0 16px; overflow-x: auto;
+        -webkit-mask-image: linear-gradient(to right, #000 85%, transparent);
+                mask-image: linear-gradient(to right, #000 85%, transparent);
+    }
+    .generos-riel::after { content: ''; flex: 0 0 24px; }
+    .cat-item { position: relative; font-size: 0.76rem; letter-spacing: 0.04em; padding: 13px 0; flex-shrink: 0; }
     .cat-item.active::after {
         content: ''; position: absolute; left: 0; right: 0; bottom: 6px;
         height: 2px; border-radius: 2px; background: var(--accent);
     }
-    .txt-largo { display: none; }
-    .txt-corto { display: inline; }
 
     #contenido-principal { padding: 0 16px; }
     .seccion-titulo { font-size: 1.15rem; padding-left: 0; margin-bottom: 12px; }
@@ -516,25 +526,17 @@ body.menu-abierto .menu-lateral { transform: none; box-shadow: -20px 0 50px rgba
     .peli-titulo-tarjeta { font-size: 0.82rem; margin-bottom: 4px; }
     .peli-meta-flex { font-size: 0.74rem; }
 
-    /* Banner tipo afiche: el póster vertical (que ya trae el título) y abajo los botones */
-    .hero-slider-container {
-        height: auto; min-height: 0; aspect-ratio: 2 / 3; max-height: 70vh;
-        border-radius: 14px; margin-top: 14px; margin-bottom: 28px;
-        box-shadow: 0 18px 40px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06);
-    }
-    .slide-backdrop { object-position: center top; }
+    /* Banner horizontal compacto (teléfonos anchos y tablets chicas) */
+    .hero-slider-container { height: auto; min-height: 0; max-height: none; aspect-ratio: 16 / 10; margin-top: 12px; margin-bottom: 26px; }
     .slide-overlay {
-        align-items: flex-end; justify-content: center; padding: 0 16px 38px;
-        background: linear-gradient(to top, rgba(4,7,20,.98) 0%, rgba(4,7,20,.7) 22%, transparent 45%);
+        align-items: flex-end; padding: 0 20px 40px;
+        background: linear-gradient(to top, rgba(4,7,20,.97) 0%, rgba(4,7,20,.6) 40%, transparent 75%);
     }
-    .slide-info-block { max-width: 100%; width: 100%; text-align: center; }
-    .slide-info-block h2, .slide-resumen {
-        position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
-    }
-    .slide-meta-datos { justify-content: center; margin-bottom: 14px; }
-    .slide-acciones { gap: 10px; }
-    .btn-explorar-ficha { flex: 1; padding: 13px; background: var(--accent); color: var(--bg-base); border-color: var(--accent); }
-    .btn-hero-fav { flex: 1; background: rgba(255,255,255,.1); }
+    .slide-info-block { max-width: 100%; }
+    .slide-info-block h2 { font-size: 1.7rem; margin-bottom: 8px; }
+    .slide-meta-datos { margin-bottom: 8px; }
+    .slide-resumen { font-size: 0.86rem; -webkit-line-clamp: 2; line-clamp: 2; margin-bottom: 14px; }
+    .btn-explorar-ficha { padding: 11px 24px; }
     .slider-dots { bottom: 14px; }
 
     /* Resultados y favoritos */
@@ -560,24 +562,53 @@ body.menu-abierto .menu-lateral { transform: none; box-shadow: -20px 0 50px rgba
     .btn-favorito { width: 100%; justify-content: center; }
 
     .navbar-inferior { display: flex; }
+    .buscador-overlay { bottom: calc(62px + env(safe-area-inset-bottom)); }
     .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
 
-    /* Pie: marca arriba, links en dos columnas y créditos */
-    .footer-minimalista { padding: 32px 0 20px; margin-top: 32px; border-top: 1px solid var(--border); }
-    .footer-contenedor { padding: 0 16px; }
-    .footer-marca { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
-    .footer-marca .logo-texto { font-size: 1.4rem; }
-    .footer-marca p { color: var(--text-sub); font-size: 0.82rem; margin-top: 4px; }
-    .footer-fila-enlaces { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; justify-content: stretch; }
-    .footer-link { text-align: left; padding: 9px 0; font-size: 0.88rem; }
-    .footer-fila-inferior { margin-top: 18px; padding-top: 16px; border-top-color: var(--border); text-align: left; }
-    .footer-fila-inferior p { font-size: 0.78rem; line-height: 1.6; }
+}
+
+/* Teléfono angosto: banner tipo afiche con el póster vertical */
+@media (max-width: 520px) {
+    /* Banner tipo afiche: el póster vertical (que ya trae el título) y abajo los botones */
+    .hero-slider-container {
+        /* El afiche nunca se recorta: si la pantalla es baja, se achica a lo ancho y queda centrado */
+        height: auto; min-height: 0; max-height: none; aspect-ratio: 2 / 3;
+        width: min(100%, 70vh * 2 / 3); width: min(100%, 70svh * 2 / 3); margin-inline: auto;
+        border-radius: 14px; margin-top: 14px; margin-bottom: 28px;
+        box-shadow: 0 18px 40px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06);
+    }
+    .slide-backdrop { object-position: center top; }
+    .slide-overlay {
+        align-items: flex-end; justify-content: center; padding: 0 16px 38px;
+        background: linear-gradient(to top, rgba(4,7,20,.98) 0%, rgba(4,7,20,.7) 22%, transparent 45%);
+    }
+    .slide-info-block { max-width: 100%; width: 100%; text-align: center; }
+    .slide-info-block h2, .slide-resumen {
+        position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+    }
+    .slide-meta-datos { justify-content: center; margin-bottom: 14px; }
+    .slide-acciones { gap: 10px; }
+    .btn-explorar-ficha { flex: 1; padding: 13px; background: var(--accent); color: var(--bg-base); border-color: var(--accent); }
+    .btn-hero-fav { flex: 1; background: rgba(255,255,255,.1); }
+    .slider-dots { bottom: 14px; }
+}
+
+/* Teléfono ancho / tablet chica: más tarjetas por fila */
+@media (min-width: 521px) and (max-width: 768px) {
+    :root { --cols: 3.4; }
+    .grilla-peliculas-busqueda { grid-template-columns: repeat(3,minmax(0,1fr)) !important; }
 }
 
 /* Teléfonos muy angostos */
 @media (max-width: 360px) {
     :root { --cols: 2.15; }
-    .cat-item { font-size: 0.68rem; letter-spacing: 0.02em; }
+}
+
+/* Pantallas bajas (teléfono acostado): el banner no ocupa toda la altura */
+@media (max-height: 520px) and (min-width: 521px) {
+    .hero-slider-container { height: 72vh; min-height: 0; aspect-ratio: auto; }
+    .slide-info-block h2 { font-size: 1.6rem; }
+    .slide-resumen { -webkit-line-clamp: 2; line-clamp: 2; }
 }
 
 @media (prefers-reduced-motion: reduce) {
