@@ -1,5 +1,5 @@
 // Cambiar la versión cada vez que se modifiquen los archivos, así los usuarios reciben la nueva
-const CACHE_NAME = "monofilms-v2";
+const CACHE_NAME = "monofilms-v3";
 
 // Antes se apuntaba a ./imagenes/ICONOS/..., carpeta que no existe: eso hacía fallar la instalación.
 const ARCHIVOS_CACHE = [

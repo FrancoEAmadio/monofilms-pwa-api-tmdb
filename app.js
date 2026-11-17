@@ -12,7 +12,8 @@ const URL_BASE      = 'https://api.themoviedb.org/3';
 const URL_POSTER    = 'https://image.tmdb.org/t/p/w500';
 const URL_BACKDROP  = 'https://image.tmdb.org/t/p/original';
 // En pantallas chicas el fondo del banner se pide más liviano
-const URL_BACKDROP_MOVIL = 'https://image.tmdb.org/t/p/w780';
+const URL_POSTER_GRANDE  = 'https://image.tmdb.org/t/p/w780';
+const URL_MINIATURA      = 'https://image.tmdb.org/t/p/w92';
 
 const POSTER_FALLBACK = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='450' viewBox='0 0 300 450'%3E%3Crect width='300' height='450' fill='%230f172a'/%3E%3Ctext x='150' y='225' text-anchor='middle' font-family='Arial' font-size='14' font-weight='bold' fill='%234f566b'%3ESin P%C3%B3ster%3C/text%3E%3C/svg%3E";
 
@@ -118,6 +119,16 @@ function alternarFavorito(id) {
     return true;
 }
 
+function pintarBotonFav(boton, activo) {
+    boton.classList.toggle('activo', activo);
+    boton.setAttribute('aria-pressed', String(activo));
+    boton.querySelector('use')?.setAttribute('href', activo ? '#i-estrella' : '#i-estrella-borde');
+    const texto = boton.querySelector('span');
+    if (!texto) return;
+    if (boton.classList.contains('btn-hero-fav')) texto.textContent = activo ? 'Guardado' : 'Favorito';
+    else texto.textContent = activo ? 'En tus favoritos' : 'Agregar a favoritos';
+}
+
 function actualizarContadoresFavoritos() {
     const total = leerFavoritos().length;
     ['contadorFavsHeader', 'contadorFavsMenu', 'contadorFavsNav'].forEach(id => {
@@ -168,12 +179,16 @@ function montarHero() {
     const contenedorPuntos = $('sliderDots');
     if (!contenedorSlides || !contenedorPuntos || !peliculasHero.length) return;
 
-    const baseFondo = esPantallaChica() ? URL_BACKDROP_MOVIL : URL_BACKDROP;
+    // En teléfono el banner es vertical: se usa el póster (que ya trae el título) en vez del fondo apaisado
+    const chica = esPantallaChica();
 
     contenedorSlides.innerHTML = peliculasHero.map((pelicula, indice) => {
         registrarContenido(pelicula);
         const titulo   = escaparHTML(pelicula.title || pelicula.name);
-        const urlFondo = pelicula.backdrop_path ? `${baseFondo}${pelicula.backdrop_path}` : '';
+        const urlFondo = chica
+            ? (pelicula.poster_path ? `${URL_POSTER_GRANDE}${pelicula.poster_path}` : '')
+            : (pelicula.backdrop_path ? `${URL_BACKDROP}${pelicula.backdrop_path}` : '');
+        const fav = esFavorito(pelicula.id);
         return `
             <div class="slide-item ${indice === indiceHero ? 'active' : ''}" aria-hidden="${indice === indiceHero ? 'false' : 'true'}">
                 <img src="${urlFondo}" class="slide-backdrop" alt="" ${indice === 0 ? 'fetchpriority="high"' : 'loading="lazy"'}>
@@ -185,7 +200,12 @@ function montarHero() {
                             <span class="slide-anio-txt">Tendencia global</span>
                         </div>
                         <p class="slide-resumen">${escaparHTML(pelicula.overview || 'Sin sinopsis disponible en español.')}</p>
-                        <button class="btn-explorar-ficha" data-ficha="${pelicula.id}">Ver ficha</button>
+                        <div class="slide-acciones">
+                            <button class="btn-explorar-ficha" data-ficha="${pelicula.id}">Ver ficha</button>
+                            <button class="btn-hero-fav ${fav ? 'activo' : ''}" data-fav="${pelicula.id}" aria-pressed="${fav}" aria-label="Guardar en favoritos">
+                                <svg><use href="${fav ? '#i-estrella' : '#i-estrella-borde'}"/></svg><span>${fav ? 'Guardado' : 'Favorito'}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>`;
@@ -236,7 +256,8 @@ function cerrarModal(id) {
     const modal = $(id);
     if (!modal || modal.hidden) return;
     modal.classList.remove('visible');
-    document.body.classList.remove('modal-abierto');
+    // Si la ficha se abrió desde el buscador, la página de atrás sigue bloqueada
+    if ($('buscadorOverlay').hidden) document.body.classList.remove('modal-abierto');
     setTimeout(() => { modal.hidden = true; }, 220);
 }
 
@@ -254,7 +275,7 @@ window.abrirFicha = function(idPelicula) {
     const titulo   = escaparHTML(pelicula.title || pelicula.name);
     const fecha    = pelicula.release_date || pelicula.first_air_date;
     const fechaTxt = fecha ? new Date(fecha + 'T00:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Sin fecha';
-    const fondo    = pelicula.backdrop_path ? `${URL_BACKDROP_MOVIL}${pelicula.backdrop_path}` : (pelicula.poster_path ? `${URL_POSTER}${pelicula.poster_path}` : '');
+    const fondo    = pelicula.backdrop_path ? `${URL_POSTER_GRANDE}${pelicula.backdrop_path}` : (pelicula.poster_path ? `${URL_POSTER}${pelicula.poster_path}` : '');
     const tipo     = (pelicula.media_type || tipoContenido) === 'tv' ? 'Serie' : 'Película';
     const fav      = esFavorito(id);
 
@@ -403,14 +424,14 @@ async function buscarContenido(textoBusqueda) {
 function mostrarFavoritos() {
     vistaActual = 'favoritos';
     marcarNavInferior('favoritos');
-    mostrarVistaLista('Mis favoritos');
     const favoritos = leerFavoritos();
+    mostrarVistaLista(favoritos.length ? `Mis favoritos (${favoritos.length})` : 'Mis favoritos');
     $('peliculas-buscadas').innerHTML = favoritos.length
         ? favoritos.map(crearTarjeta).join('')
         : `<div class="mensaje-vacio">
                <svg><use href="#i-estrella-borde"/></svg>
                <p>Todavía no guardaste nada.</p>
-               <p>Abrí la ficha de una película o serie y tocá <strong>Agregar a favoritos</strong>.</p>
+               <p>Tocá la <strong>estrella</strong> en el banner o abrí una ficha y elegí <strong>Agregar a favoritos</strong>.</p>
            </div>`;
 }
 
@@ -470,9 +491,15 @@ function abrirBuscador() {
     const overlay = $('buscadorOverlay');
     let recientes = [];
     try { recientes = JSON.parse(localStorage.getItem(CLAVE_RECIENTES)) || []; } catch { }
-    $('buscadorRecientes').innerHTML = recientes.length
-        ? `<p class="menu-titulo">Búsquedas recientes</p>` + recientes.map(t => `<button class="chip-reciente" data-reciente="${escaparHTML(t)}">${escaparHTML(t)}</button>`).join('')
-        : '';
+    $('buscadorRecientes').innerHTML =
+        (recientes.length
+            ? `<p class="menu-titulo">Búsquedas recientes</p>` + recientes.map(t => `<button class="chip-reciente" data-reciente="${escaparHTML(t)}">${escaparHTML(t)}</button>`).join('')
+            : '') +
+        `<p class="menu-titulo">Explorar por género</p>` +
+        [['accion', 'Acción'], ['comedia', 'Comedia'], ['animacion', 'Animación'], ['cienciaficcion', 'Ciencia ficción']]
+            .map(([g, n]) => `<button class="chip-reciente chip-genero" data-accion="genero" data-genre="${g}">${n}</button>`).join('');
+    $('inputBuscarOverlay').value = '';
+    mostrarSugerencias('');
     overlay.hidden = false;
     document.body.classList.add('modal-abierto');
     requestAnimationFrame(() => {
@@ -480,6 +507,40 @@ function abrirBuscador() {
         $('inputBuscarOverlay').focus();
     });
 }
+// Resultados en vivo dentro del buscador (con una pequeña espera para no pedir en cada letra)
+let timerSugerencias = null;
+let controladorSugerencias = null;
+function mostrarSugerencias(texto) {
+    const lista = $('buscadorSugerencias');
+    const ayuda = $('buscadorAyuda');
+    clearTimeout(timerSugerencias);
+    texto = texto.trim();
+    $('buscadorRecientes').hidden = texto.length > 0;
+    if (texto.length < 2) { lista.innerHTML = ''; ayuda.hidden = texto.length > 0; return; }
+    ayuda.hidden = true;
+    timerSugerencias = setTimeout(async () => {
+        if (!navigator.onLine) { lista.innerHTML = '<p class="sugerencia-vacia">Sin conexión. Tocá Buscar para ver lo guardado.</p>'; return; }
+        controladorSugerencias?.abort();
+        controladorSugerencias = new AbortController();
+        lista.innerHTML = '<p class="sugerencia-vacia">Buscando…</p>';
+        const res = await consultarAPI('/search/multi', { query: texto }, controladorSugerencias.signal);
+        if (controladorSugerencias.signal.aborted || res === null) return;
+        const items = res.filter(i => i.media_type !== 'person' && i.poster_path).slice(0, 8);
+        if (!items.length) { lista.innerHTML = `<p class="sugerencia-vacia">No encontramos nada para “${escaparHTML(texto)}”.</p>`; return; }
+        lista.innerHTML = items.map(i => {
+            registrarContenido(i);
+            const anio = (i.release_date || i.first_air_date || '').slice(0, 4);
+            return `<button class="sugerencia" data-ficha="${i.id}">
+                <img src="${URL_MINIATURA}${i.poster_path}" alt="" loading="lazy">
+                <span class="sugerencia-texto">
+                    <strong>${escaparHTML(i.title || i.name)}</strong>
+                    <small>${i.media_type === 'tv' ? 'Serie' : 'Película'}${anio ? ' · ' + anio : ''}${i.vote_average ? ' · ⭐ ' + i.vote_average.toFixed(1) : ''}</small>
+                </span>
+            </button>`;
+        }).join('') + `<button class="sugerencia-todos" type="submit" form="formBuscarOverlay">Ver todos los resultados</button>`;
+    }, 350);
+}
+
 function cerrarBuscador() {
     const overlay = $('buscadorOverlay');
     if (overlay.hidden) return;
@@ -588,10 +649,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnFav) {
             const id = btnFav.dataset.fav;
             const ahora = alternarFavorito(id);
-            btnFav.classList.toggle('activo', ahora);
-            btnFav.setAttribute('aria-pressed', String(ahora));
-            btnFav.querySelector('use').setAttribute('href', ahora ? '#i-estrella' : '#i-estrella-borde');
-            btnFav.querySelector('span').textContent = ahora ? 'En tus favoritos' : 'Agregar a favoritos';
+            document.querySelectorAll(`[data-fav="${id}"]`).forEach(b => pintarBotonFav(b, ahora));
             if (vistaActual === 'favoritos') mostrarFavoritos();
             return;
         }
@@ -605,6 +663,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const conAccion = e.target.closest('[data-accion]');
         if (conAccion) {
             if (conAccion.closest('#menuLateral')) cerrarMenu();
+            if (conAccion.closest('#buscadorOverlay')) cerrarBuscador();
             ejecutarAccion(conAccion.dataset.accion, conAccion.dataset);
         }
     });
@@ -616,9 +675,10 @@ document.addEventListener('DOMContentLoaded', () => {
             abrirFicha(e.target.dataset.id);
         }
         if (e.key === 'Escape') {
+            const fichaAbierta = !$('modalFicha').hidden || !$('modalAcerca').hidden;
             cerrarModal('modalFicha');
             cerrarModal('modalAcerca');
-            cerrarBuscador();
+            if (!fichaAbierta) cerrarBuscador();
             if (document.body.classList.contains('menu-abierto')) cerrarMenu();
         }
     });
@@ -636,6 +696,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Buscador a pantalla completa
     $('btnBuscarHeader')?.addEventListener('click', abrirBuscador);
     $('btnCerrarBuscador')?.addEventListener('click', cerrarBuscador);
+    $('inputBuscarOverlay')?.addEventListener('input', e => mostrarSugerencias(e.target.value));
     $('formBuscarOverlay')?.addEventListener('submit', e => {
         e.preventDefault();
         const texto = $('inputBuscarOverlay').value;

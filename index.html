@@ -39,9 +39,6 @@
     <header class="navbar-superior">
       <div class="navbar-inner">
         <div class="header-izquierda">
-          <button class="btn-icono" id="btnMenu" aria-label="Abrir menú" aria-controls="menuLateral" aria-expanded="false">
-            <svg><use href="#i-menu"/></svg>
-          </button>
           <a class="logo-area" id="brand-logo" href="./" aria-label="MonoFilms, ir al inicio">
             <img src="LOGO-APP.png" alt="" class="avatar-mono">
             <span class="logo-texto">Mono<span>Films</span></span>
@@ -65,6 +62,9 @@
             <svg><use href="#i-estrella"/></svg>
             <span class="contador-favs" id="contadorFavsHeader" hidden>0</span>
           </button>
+          <button class="btn-icono" id="btnMenu" aria-label="Abrir menú" aria-controls="menuLateral" aria-expanded="false">
+            <svg><use href="#i-menu"/></svg>
+          </button>
         </div>
       </div>
     </header>
@@ -75,7 +75,7 @@
         <button class="cat-item" data-genre="accion">Acción</button>
         <button class="cat-item" data-genre="comedia">Comedia</button>
         <button class="cat-item" data-genre="animacion">Animación</button>
-        <button class="cat-item" data-genre="cienciaficcion">Ciencia Ficción</button>
+        <button class="cat-item" data-genre="cienciaficcion"><span class="txt-largo">Ciencia Ficción</span><span class="txt-corto">Sci-Fi</span></button>
       </div>
     </nav>
   </div>
@@ -115,8 +115,11 @@
       <input type="search" id="inputBuscarOverlay" placeholder="Buscar películas o series" autocomplete="off" enterkeyhint="search" aria-label="Buscar películas o series">
       <button type="button" class="btn-texto" id="btnCerrarBuscador">Cancelar</button>
     </form>
-    <p class="buscador-overlay-ayuda">Escribí un título y tocá Buscar en el teclado.</p>
-    <div class="buscador-recientes" id="buscadorRecientes"></div>
+    <div class="buscador-cuerpo">
+      <p class="buscador-overlay-ayuda" id="buscadorAyuda">Empezá a escribir y te mostramos resultados al instante.</p>
+      <div class="buscador-sugerencias" id="buscadorSugerencias" aria-live="polite"></div>
+      <div class="buscador-recientes" id="buscadorRecientes"></div>
+    </div>
   </div>
 
   <!-- ── CONTENIDO ────────────────────────────────────────────────────────── -->
@@ -212,6 +215,13 @@
   <!-- ── PIE ──────────────────────────────────────────────────────────────── -->
   <footer class="footer-minimalista">
     <div class="footer-contenedor">
+      <div class="footer-marca">
+        <img src="LOGO-APP.png" alt="" class="avatar-mono">
+        <div>
+          <span class="logo-texto">Mono<span>Films</span></span>
+          <p>Películas y series para descubrir y guardar.</p>
+        </div>
+      </div>
       <div class="footer-fila-enlaces">
         <button type="button" class="footer-link" data-accion="acerca">Acerca de MonoFilms</button>
         <button type="button" class="footer-link" data-accion="favoritos">Mis favoritos</button>
