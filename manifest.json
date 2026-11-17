@@ -1,21 +1,16 @@
 {
   "name": "MonoFilms",
   "short_name": "MonoFilms",
-  "description": "Buscador de películas y series",
+  "description": "Explorá películas y series, buscá títulos y guardá tus favoritos",
+  "lang": "es-AR",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#040714",
   "theme_color": "#040714",
   "icons": [
-    {
-      "src": "./imagenes/ICONOS/LOGO-APP.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "./imagenes/ICONOS/LOGO-APP.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
+    { "src": "./icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icono-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

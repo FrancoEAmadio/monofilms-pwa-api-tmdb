@@ -1,5 +1,7 @@
-const CACHE_NAME = "monofilms-cache";
+// Cambiar la versión cada vez que se modifiquen los archivos, así los usuarios reciben la nueva
+const CACHE_NAME = "monofilms-v4";
 
+// Antes se apuntaba a ./imagenes/ICONOS/..., carpeta que no existe: eso hacía fallar la instalación.
 const ARCHIVOS_CACHE = [
     "./",
     "./index.html",
@@ -7,71 +9,51 @@ const ARCHIVOS_CACHE = [
     "./estilos.css",
     "./app.js",
     "./manifest.json",
-    "./imagenes/ICONOS/LOGO-APP.png",
-    "./imagenes/ICONOS/home.png",
-    "./imagenes/ICONOS/HOMECELESTE.png",
-    "./imagenes/ICONOS/busqueda.png",
-    "./imagenes/ICONOS/BUSQUEDACELESTE.png",
-    "./imagenes/ICONOS/favoritos.png",
-    "./imagenes/ICONOS/FAVORITOSCELESTE.png"
+    "./LOGO-APP.png",
+    "./icono-192.png",
+    "./icono-512.png"
 ];
 
-// Instalación: abro la caché y guardo los archivos estáticos
+// Instalación: guardo los archivos de la app y activo la versión nueva sin esperar
 self.addEventListener("install", event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then(cache => {
-                return cache.addAll(ARCHIVOS_CACHE);
-            })
+            .then(cache => cache.addAll(ARCHIVOS_CACHE))
+            .then(() => self.skipWaiting())
     );
 });
 
-// Activación: borro las cachés viejas si cambio la versión
+// Activación: borro las cachés de versiones anteriores
 self.addEventListener("activate", event => {
     event.waitUntil(
-        caches.keys().then(keys => {
-            return Promise.all(
-                keys.map(key => {
-                    if (key !== CACHE_NAME) {
-                        return caches.delete(key);
-                    }
-                })
-            );
-        })
+        caches.keys()
+            .then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
+            .then(() => self.clients.claim())
     );
 });
 
-// Estrategia Stale While Revalidate corregida para evitar errores offline
+// Estrategia Stale While Revalidate: respondo rápido con la caché y actualizo en segundo plano
 self.addEventListener("fetch", event => {
-    event.respondWith(
-        caches.match(event.request)
-            .then(respuestaCache => {
-                // Hago la petición para actualizar en segundo plano
-                const peticionRed = fetch(event.request)
-                    .then(respuestaRed => {
-                        // Solo guardamos en caché si la respuesta es válida (status 200)
-                        if (respuestaRed && respuestaRed.status === 200) {
-                            return caches.open(CACHE_NAME).then(cache => {
-                                cache.put(event.request, respuestaRed.clone());
-                                return respuestaRed;
-                            });
-                        }
-                        return respuestaRed;
-                    })
-                    .catch(error => {
-                        // Si falla la red y NO tenemos este recurso en caché
-                        if (!respuestaCache) {
-                            // Si el usuario intentaba navegar a otra página, le tiramos el offline.html
-                            if (event.request.mode === "navigate") {
-                                return caches.match("./offline.html");
-                            }
-                            // Si era una fuente, una imagen o una API, devolvemos un error de red controlado
-                            return new Response("Network error", { status: 503, statusText: "Service Unavailable" });
-                        }
-                    });
+    const pedido = event.request;
+    if (pedido.method !== "GET" || !pedido.url.startsWith("http")) return;
 
-                // Devuelvo lo de caché si está, o espero a la red
-                return respuestaCache || peticionRed;
-            })
+    event.respondWith(
+        caches.match(pedido).then(respuestaCache => {
+            const peticionRed = fetch(pedido)
+                .then(respuestaRed => {
+                    if (respuestaRed && respuestaRed.status === 200) {
+                        const copia = respuestaRed.clone();
+                        caches.open(CACHE_NAME).then(cache => cache.put(pedido, copia));
+                    }
+                    return respuestaRed;
+                })
+                .catch(() => {
+                    if (respuestaCache) return respuestaCache;
+                    if (pedido.mode === "navigate") return caches.match("./offline.html");
+                    return new Response("Network error", { status: 503, statusText: "Service Unavailable" });
+                });
+
+            return respuestaCache || peticionRed;
+        })
     );
 });

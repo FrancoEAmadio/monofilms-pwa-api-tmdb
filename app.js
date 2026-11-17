@@ -11,6 +11,9 @@ const TOKEN_TMDB    = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI3YjI0MzdmNmNmMGI2MWY2MzA1
 const URL_BASE      = 'https://api.themoviedb.org/3';
 const URL_POSTER    = 'https://image.tmdb.org/t/p/w500';
 const URL_BACKDROP  = 'https://image.tmdb.org/t/p/original';
+// En pantallas chicas el fondo del banner se pide más liviano
+const URL_POSTER_GRANDE  = 'https://image.tmdb.org/t/p/w780';
+const URL_MINIATURA      = 'https://image.tmdb.org/t/p/w92';
 
 const POSTER_FALLBACK = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='450' viewBox='0 0 300 450'%3E%3Crect width='300' height='450' fill='%230f172a'/%3E%3Ctext x='150' y='225' text-anchor='middle' font-family='Arial' font-size='14' font-weight='bold' fill='%234f566b'%3ESin P%C3%B3ster%3C/text%3E%3C/svg%3E";
 
@@ -19,29 +22,29 @@ const GENEROS_TMDB = {
     tv:    { accion: '10759', comedia: '35', animacion: '16', cienciaficcion: '10765' }
 };
 
+const CLAVE_FAVORITOS = 'monofilms_favoritos';
+const CLAVE_RECIENTES = 'monofilms_recientes';
+
 let contenidoCargado  = [];
 let tipoContenido     = 'movie';
 let peliculasHero     = [];
 let indiceHero        = 0;
 let timerHero         = null;
 let controladorFetch  = null;
+let vistaActual       = 'inicio';   // 'inicio' | 'busqueda' | 'favoritos'
+let eventoInstalacion = null;
 window.isDragging     = false;
 
-async function estaOnline() {
-    if (!navigator.onLine) return false;
-    try {
-        const respuesta = await fetch(`${URL_BASE}/configuration`, {
-            headers: { Authorization: `Bearer ${TOKEN_TMDB}` },
-            cache: 'no-store',
-            signal: AbortSignal.timeout(4000)
-        });
-        if (respuesta.status === 503) return false;
-        return respuesta.ok;
-    } catch {
-        return false;
-    }
+const $ = id => document.getElementById(id);
+
+// Evita que un título con caracteres raros rompa el HTML
+function escaparHTML(texto) {
+    return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+const esPantallaChica = () => window.matchMedia('(max-width: 520px)').matches;
+
+// ── API ───────────────────────────────────────────────────────────────────────
 async function consultarAPI(endpoint, parametros = {}, señalAborto = null) {
     if (!TOKEN_TMDB) return null;
 
@@ -74,10 +77,7 @@ async function consultarAPI(endpoint, parametros = {}, señalAborto = null) {
 
 function guardarBusquedaLocal(textoBuscado, resultados) {
     try {
-        localStorage.setItem(
-            `monofilms_${textoBuscado.toLowerCase()}`,
-            JSON.stringify(resultados)
-        );
+        localStorage.setItem(`monofilms_${textoBuscado.toLowerCase()}`, JSON.stringify(resultados));
     } catch { }
 }
 
@@ -90,63 +90,137 @@ function recuperarBusquedaLocal(textoBuscado) {
     }
 }
 
+// ── FAVORITOS (se guardan en el dispositivo) ─────────────────────────────────
+function leerFavoritos() {
+    try { return JSON.parse(localStorage.getItem(CLAVE_FAVORITOS)) || []; } catch { return []; }
+}
+function guardarFavoritos(lista) {
+    try { localStorage.setItem(CLAVE_FAVORITOS, JSON.stringify(lista)); } catch { }
+    actualizarContadoresFavoritos();
+}
+const esFavorito = id => leerFavoritos().some(f => f.id === Number(id));
+
+function alternarFavorito(id) {
+    const lista = leerFavoritos();
+    const indice = lista.findIndex(f => f.id === Number(id));
+    if (indice >= 0) {
+        lista.splice(indice, 1);
+        guardarFavoritos(lista);
+        mostrarAviso('Quitado de favoritos');
+        return false;
+    }
+    const item = contenidoCargado.find(p => p.id === Number(id));
+    if (!item) return false;
+    // Solo guardamos lo necesario para mostrar la tarjeta y la ficha
+    const { id: idItem, title, name, poster_path, backdrop_path, overview, vote_average, release_date, first_air_date, media_type } = item;
+    lista.unshift({ id: idItem, title, name, poster_path, backdrop_path, overview, vote_average, release_date, first_air_date, media_type: media_type || tipoContenido });
+    guardarFavoritos(lista);
+    mostrarAviso('Agregado a favoritos');
+    return true;
+}
+
+function pintarBotonFav(boton, activo) {
+    boton.classList.toggle('activo', activo);
+    boton.setAttribute('aria-pressed', String(activo));
+    boton.querySelector('use')?.setAttribute('href', activo ? '#i-estrella' : '#i-estrella-borde');
+    const texto = boton.querySelector('span');
+    if (!texto) return;
+    if (boton.classList.contains('btn-hero-fav')) texto.textContent = activo ? 'Guardado' : 'Favorito';
+    else texto.textContent = activo ? 'En tus favoritos' : 'Agregar a favoritos';
+}
+
+function actualizarContadoresFavoritos() {
+    const total = leerFavoritos().length;
+    ['contadorFavsHeader', 'contadorFavsMenu', 'contadorFavsNav'].forEach(id => {
+        const el = $(id);
+        if (!el) return;
+        el.textContent = total;
+        el.hidden = total === 0;
+    });
+    document.querySelectorAll('.peli-card-horizontal').forEach(card => {
+        card.classList.toggle('es-favorito', esFavorito(card.dataset.id));
+    });
+}
+
+// ── TARJETAS ─────────────────────────────────────────────────────────────────
+function registrarContenido(item) {
+    if (!contenidoCargado.find(p => p.id === item.id)) contenidoCargado.push(item);
+}
+
 function crearTarjeta(pelicula) {
-    const titulo   = pelicula.title || pelicula.name || 'Título Desconocido';
-    const anio     = (pelicula.release_date || pelicula.first_air_date || '').split('-')[0] || 'S/D';
-    const puntuacion = pelicula.vote_average ? pelicula.vote_average.toFixed(1) : '0.0';
+    const titulo     = escaparHTML(pelicula.title || pelicula.name || 'Título desconocido');
+    const anio       = (pelicula.release_date || pelicula.first_air_date || '').split('-')[0] || 'S/D';
+    const puntuacion = pelicula.vote_average ? '⭐ ' + pelicula.vote_average.toFixed(1) : 'Nuevo';
     const urlPoster  = pelicula.poster_path ? `${URL_POSTER}${pelicula.poster_path}` : POSTER_FALLBACK;
 
-    if (!contenidoCargado.find(p => p.id === pelicula.id)) {
-        contenidoCargado.push(pelicula);
-    }
+    registrarContenido(pelicula);
 
     return `
-        <div class="peli-card-horizontal" onclick="abrirFicha(${pelicula.id})">
+        <article class="peli-card-horizontal ${esFavorito(pelicula.id) ? 'es-favorito' : ''}" data-id="${pelicula.id}" tabindex="0" role="button" aria-label="Ver ficha de ${titulo}">
             <div class="poster-contenedor">
-                <img src="${urlPoster}" alt="${titulo}" class="peli-poster" loading="lazy" onerror="this.src='${POSTER_FALLBACK}'">
-                <div class="card-overlay"><button class="btn-card-accion">Ver Ficha</button></div>
+                <img src="${urlPoster}" alt="" class="peli-poster" loading="lazy" draggable="false" onerror="this.src='${POSTER_FALLBACK}'">
+                <span class="fav-marca" aria-hidden="true"><svg><use href="#i-estrella"/></svg></span>
+                <div class="card-overlay"><span class="btn-card-accion">Ver ficha</span></div>
             </div>
             <div class="peli-info">
                 <h3 class="peli-titulo-tarjeta">${titulo}</h3>
                 <div class="peli-meta-flex">
                     <span>${anio}</span>
-                    <span class="peli-nota-badge">⭐ ${puntuacion}</span>
+                    <span class="peli-nota-badge">${puntuacion}</span>
                 </div>
             </div>
-        </div>`;
+        </article>`;
 }
 
-// ── ACA ESTÁ LA CORRECCIÓN DEL H2 ──
+// ── BANNER (HERO) ────────────────────────────────────────────────────────────
 function montarHero() {
     clearInterval(timerHero);
-    const contenedorSlides = document.getElementById('sliderWrapper');
-    const contenedorPuntos = document.getElementById('sliderDots');
+    const contenedorSlides = $('sliderWrapper');
+    const contenedorPuntos = $('sliderDots');
     if (!contenedorSlides || !contenedorPuntos || !peliculasHero.length) return;
 
+    // En teléfono el banner es vertical: se usa el póster (que ya trae el título) en vez del fondo apaisado
+    const chica = esPantallaChica();
+
     contenedorSlides.innerHTML = peliculasHero.map((pelicula, indice) => {
-        if (!contenidoCargado.find(p => p.id === pelicula.id)) contenidoCargado.push(pelicula);
-        const urlFondo = pelicula.backdrop_path ? `${URL_BACKDROP}${pelicula.backdrop_path}` : '';
+        registrarContenido(pelicula);
+        const titulo   = escaparHTML(pelicula.title || pelicula.name);
+        const urlFondo = chica
+            ? (pelicula.poster_path ? `${URL_POSTER_GRANDE}${pelicula.poster_path}` : '')
+            : (pelicula.backdrop_path ? `${URL_BACKDROP}${pelicula.backdrop_path}` : '');
+        const fav = esFavorito(pelicula.id);
         return `
-            <div class="slide-item ${indice === indiceHero ? 'active' : ''}">
-                <img src="${urlFondo}" class="slide-backdrop" alt="${pelicula.title || pelicula.name}">
+            <div class="slide-item ${indice === indiceHero ? 'active' : ''}" aria-hidden="${indice === indiceHero ? 'false' : 'true'}">
+                <img src="${urlFondo}" class="slide-backdrop" alt="" ${indice === 0 ? 'fetchpriority="high"' : 'loading="lazy"'}>
                 <div class="slide-overlay">
                     <div class="slide-info-block">
-                        <h2>${pelicula.title || pelicula.name}</h2>
+                        <h2>${titulo}</h2>
                         <div class="slide-meta-datos">
-                            <span class="badge-slide-nota">⭐ ${(pelicula.vote_average || 0).toFixed(1)}</span>
-                            <span class="slide-anio-txt">Tendencia Global</span>
+                            <span class="badge-slide-nota">${pelicula.vote_average ? '⭐ ' + pelicula.vote_average.toFixed(1) : 'Estreno'}</span>
+                            <span class="slide-anio-txt">Tendencia global</span>
                         </div>
-                        <p class="slide-resumen">${pelicula.overview || 'Sin sinopsis disponible en español.'}</p>
-                        <button class="btn-explorar-ficha" onclick="abrirFicha(${pelicula.id})">Ver Ficha</button>
+                        <p class="slide-resumen">${escaparHTML(pelicula.overview || 'Sin sinopsis disponible en español.')}</p>
+                        <div class="slide-acciones">
+                            <button class="btn-explorar-ficha" data-ficha="${pelicula.id}">Ver ficha</button>
+                            <button class="btn-hero-fav ${fav ? 'activo' : ''}" data-fav="${pelicula.id}" aria-pressed="${fav}" aria-label="Guardar en favoritos">
+                                <svg><use href="${fav ? '#i-estrella' : '#i-estrella-borde'}"/></svg><span>${fav ? 'Guardado' : 'Favorito'}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>`;
     }).join('');
 
     contenedorPuntos.innerHTML = peliculasHero.map((_, indice) =>
-        `<span class="dot ${indice === indiceHero ? 'active' : ''}" onclick="saltarSlide(${indice})"></span>`
+        `<button class="dot ${indice === indiceHero ? 'active' : ''}" data-slide="${indice}" aria-label="Ir al destacado ${indice + 1}"></button>`
     ).join('');
 
+    reiniciarTimerHero();
+}
+
+function reiniciarTimerHero() {
+    clearInterval(timerHero);
+    if (peliculasHero.length < 2) return;
     timerHero = setInterval(() => {
         indiceHero = (indiceHero + 1) % peliculasHero.length;
         actualizarHero();
@@ -154,43 +228,80 @@ function montarHero() {
 }
 
 function saltarSlide(indice) {
-    indiceHero = indice;
+    if (!peliculasHero.length) return;
+    indiceHero = (indice + peliculasHero.length) % peliculasHero.length;
     actualizarHero();
-    montarHero();
+    reiniciarTimerHero();
 }
 
 function actualizarHero() {
-    document.querySelectorAll('.slide-item').forEach((slide, i) => slide.classList.toggle('active', i === indiceHero));
+    document.querySelectorAll('.slide-item').forEach((slide, i) => {
+        slide.classList.toggle('active', i === indiceHero);
+        slide.setAttribute('aria-hidden', i === indiceHero ? 'false' : 'true');
+    });
     document.querySelectorAll('.dot').forEach((punto, i) => punto.classList.toggle('active', i === indiceHero));
+}
+
+// ── FICHA ────────────────────────────────────────────────────────────────────
+function abrirModal(id) {
+    const modal = $(id);
+    if (!modal) return;
+    modal.hidden = false;
+    document.body.classList.add('modal-abierto');
+    requestAnimationFrame(() => modal.classList.add('visible'));
+    modal.querySelector('.btn-cerrar-modal')?.focus({ preventScroll: true });
+}
+
+function cerrarModal(id) {
+    const modal = $(id);
+    if (!modal || modal.hidden) return;
+    modal.classList.remove('visible');
+    // Si la ficha se abrió desde el buscador, la página de atrás sigue bloqueada
+    if ($('buscadorOverlay').hidden) document.body.classList.remove('modal-abierto');
+    setTimeout(() => { modal.hidden = true; }, 220);
 }
 
 window.abrirFicha = function(idPelicula) {
     if (window.isDragging) return;
 
-    const pelicula = contenidoCargado.find(p => p.id === Number(idPelicula));
+    const id = Number(idPelicula);
+    const pelicula = contenidoCargado.find(p => p.id === id) || leerFavoritos().find(p => p.id === id);
     if (!pelicula) return;
+    registrarContenido(pelicula);
 
-    const modal  = document.getElementById('modalFicha');
-    const cuerpo = document.getElementById('modalCuerpo');
-    if (!modal || !cuerpo) return;
+    const cuerpo = $('modalCuerpo');
+    if (!cuerpo) return;
+
+    const titulo   = escaparHTML(pelicula.title || pelicula.name);
+    const fecha    = pelicula.release_date || pelicula.first_air_date;
+    const fechaTxt = fecha ? new Date(fecha + 'T00:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Sin fecha';
+    const fondo    = pelicula.backdrop_path ? `${URL_POSTER_GRANDE}${pelicula.backdrop_path}` : (pelicula.poster_path ? `${URL_POSTER}${pelicula.poster_path}` : '');
+    const tipo     = (pelicula.media_type || tipoContenido) === 'tv' ? 'Serie' : 'Película';
+    const fav      = esFavorito(id);
 
     cuerpo.innerHTML = `
         <div class="ficha-header">
-            <img src="${pelicula.backdrop_path ? URL_BACKDROP + pelicula.backdrop_path : ''}" class="ficha-backdrop">
+            ${fondo ? `<img src="${fondo}" class="ficha-backdrop" alt="">` : ''}
             <div class="ficha-gradiente"></div>
         </div>
         <div class="ficha-info">
-            <h2 class="ficha-titulo">${pelicula.title || pelicula.name}</h2>
+            <span class="ficha-tipo">${tipo}</span>
+            <h2 class="ficha-titulo" id="fichaTitulo">${titulo}</h2>
             <div class="ficha-tags">
-                <span>📅 Fecha: ${pelicula.release_date || pelicula.first_air_date || 'S/D'}</span>
-                <span>⭐ Puntuación: ${(pelicula.vote_average || 0).toFixed(1)} / 10</span>
+                <span>📅 ${fechaTxt}</span>
+                <span>${pelicula.vote_average ? '⭐ ' + pelicula.vote_average.toFixed(1) + ' / 10' : 'Sin calificaciones todavía'}</span>
             </div>
-            <p class="ficha-sinopsis">${pelicula.overview || 'Sin sinopsis en español disponible.'}</p>
+            <p class="ficha-sinopsis">${escaparHTML(pelicula.overview || 'Sin sinopsis en español disponible.')}</p>
+            <button class="btn-favorito ${fav ? 'activo' : ''}" data-fav="${id}" aria-pressed="${fav}">
+                <svg><use href="#${fav ? 'i-estrella' : 'i-estrella-borde'}"/></svg>
+                <span>${fav ? 'En tus favoritos' : 'Agregar a favoritos'}</span>
+            </button>
         </div>`;
 
-    modal.style.display = 'flex';
+    abrirModal('modalFicha');
 };
 
+// ── CARGA DE CARRUSELES ──────────────────────────────────────────────────────
 async function cargarGrillas() {
     if (controladorFetch) controladorFetch.abort();
     controladorFetch = new AbortController();
@@ -201,8 +312,8 @@ async function cargarGrillas() {
     const señal          = controladorFetch.signal;
 
     nombresRieles.forEach(idRiel => {
-        const riel = document.getElementById(idRiel);
-        if (riel) riel.innerHTML = '<div class="loader-mensaje">Cargando cartelera...</div>';
+        const riel = $(idRiel);
+        if (riel) riel.innerHTML = Array.from({ length: 7 }, () => '<div class="peli-card-horizontal esqueleto" aria-hidden="true"><div class="poster-contenedor"></div><div class="peli-info"><span></span><span></span></div></div>').join('');
     });
 
     try {
@@ -218,126 +329,287 @@ async function cargarGrillas() {
         if (señal.aborted) return;
 
         peticiones.slice(0, 5).forEach((peticion, i) => {
-            const riel = document.getElementById(nombresRieles[i]);
+            const riel = $(nombresRieles[i]);
             if (!riel) return;
             if (peticion.status === 'fulfilled' && peticion.value && peticion.value.length) {
-                riel.innerHTML = peticion.value.map(crearTarjeta).join('');
+                riel.innerHTML = peticion.value.map(item => crearTarjeta({ ...item, media_type: tipoContenido })).join('');
             } else {
-                riel.innerHTML = '<div class="loader-mensaje">No disponible offline.</div>';
+                riel.innerHTML = '<div class="loader-mensaje">No disponible sin conexión.</div>';
             }
         });
 
         const tendenciasSemanales = peticiones[5].value || [];
         if (tendenciasSemanales.length) {
-            peliculasHero = tendenciasSemanales.filter(p => p.backdrop_path && p.overview).slice(0, 5);
+            peliculasHero = tendenciasSemanales.filter(p => p.backdrop_path && p.overview).slice(0, 5)
+                .map(p => ({ ...p, media_type: tipoContenido }));
             indiceHero = 0;
             montarHero();
         }
 
     } catch (error) {
         if (error.name === 'AbortError') return;
-
         nombresRieles.forEach(idRiel => {
-            const riel = document.getElementById(idRiel);
-            if (riel) riel.innerHTML = '<div class="loader-mensaje">Sin conexión. Vuelve a intentarlo.</div>';
+            const riel = $(idRiel);
+            if (riel) riel.innerHTML = '<div class="loader-mensaje">Sin conexión. Volvé a intentarlo.</div>';
         });
     }
 }
 
-async function buscarContenido(textoBusqueda) {
-    if (!textoBusqueda?.trim()) return;
-
+// ── VISTAS: INICIO / BÚSQUEDA / FAVORITOS ────────────────────────────────────
+function mostrarVistaLista(titulo) {
     document.body.classList.add('busqueda-activa');
-    document.getElementById('bloques-estandar').style.display = 'none';
-    document.getElementById('resultados-busqueda').style.display = 'block';
+    $('bloques-estandar').hidden = true;
+    $('resultados-busqueda').hidden = false;
+    $('tituloResultados').textContent = titulo;
+    // No hay una portada aparte: el botón vuelve a la sección que estaba mirando
+    $('btnVolverHome').textContent = tipoContenido === 'tv' ? 'Volver a series' : 'Volver a películas';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
-    const grillaBusqueda = document.getElementById('peliculas-buscadas');
+function marcarNavInferior(clave) {
+    document.querySelectorAll('.nav-inf-item').forEach(b => b.classList.toggle('active-inf', b.dataset.nav === clave));
+}
+
+function guardarReciente(texto) {
+    try {
+        const lista = (JSON.parse(localStorage.getItem(CLAVE_RECIENTES)) || []).filter(t => t.toLowerCase() !== texto.toLowerCase());
+        lista.unshift(texto);
+        localStorage.setItem(CLAVE_RECIENTES, JSON.stringify(lista.slice(0, 6)));
+    } catch { }
+}
+
+async function buscarContenido(textoBusqueda) {
+    const texto = textoBusqueda?.trim();
+    if (!texto) return;
+
+    vistaActual = 'busqueda';
+    marcarNavInferior('buscar');
+    guardarReciente(texto);
+    mostrarVistaLista(`Resultados para "${texto}"`);
+
+    const grillaBusqueda = $('peliculas-buscadas');
     grillaBusqueda.innerHTML = '<div class="loader-mensaje">Buscando...</div>';
 
-    if (!navigator.onLine) {
-        const resultadosGuardados = recuperarBusquedaLocal(textoBusqueda);
+    const mostrarGuardados = () => {
+        const resultadosGuardados = recuperarBusquedaLocal(texto);
         if (resultadosGuardados && resultadosGuardados.length) {
             grillaBusqueda.innerHTML = resultadosGuardados.map(crearTarjeta).join('');
         } else {
             window.location.href = './offline.html';
         }
-        return;
-    }
+    };
+
+    if (!navigator.onLine) { mostrarGuardados(); return; }
 
     if (controladorFetch) controladorFetch.abort();
     controladorFetch = new AbortController();
 
     try {
-        const resultadosAPI = await consultarAPI(
-            '/search/multi',
-            { query: textoBusqueda },
-            controladorFetch.signal
-        );
-
+        const resultadosAPI = await consultarAPI('/search/multi', { query: texto }, controladorFetch.signal);
         if (controladorFetch.signal.aborted) return;
+        if (resultadosAPI === null) { mostrarGuardados(); return; }
 
-        if (resultadosAPI === null) {
-            const resultadosGuardados = recuperarBusquedaLocal(textoBusqueda);
-            if (resultadosGuardados && resultadosGuardados.length) {
-                grillaBusqueda.innerHTML = resultadosGuardados.map(crearTarjeta).join('');
-            } else {
-                window.location.href = './offline.html';
-            }
-            return;
-        }
-
-        const resultadosFiltrados = resultadosAPI.filter(pelicula =>
-            pelicula.media_type !== 'person' && pelicula.poster_path
-        );
+        const resultadosFiltrados = resultadosAPI.filter(item => item.media_type !== 'person' && item.poster_path);
 
         if (resultadosFiltrados.length) {
-            guardarBusquedaLocal(textoBusqueda, resultadosFiltrados);
+            guardarBusquedaLocal(texto, resultadosFiltrados);
             grillaBusqueda.innerHTML = resultadosFiltrados.map(crearTarjeta).join('');
         } else {
-            grillaBusqueda.innerHTML = `
-                <p style="grid-column:1/-1;text-align:center;color:var(--text-sub);">
-                    No hubo resultados para "${textoBusqueda}".
-                </p>`;
+            grillaBusqueda.innerHTML = `<p class="mensaje-vacio">No hubo resultados para "${escaparHTML(texto)}".</p>`;
         }
-
     } catch (error) {
         if (error.name === 'AbortError') return;
-
-        const resultadosGuardados = recuperarBusquedaLocal(textoBusqueda);
-        if (resultadosGuardados && resultadosGuardados.length) {
-            grillaBusqueda.innerHTML = resultadosGuardados.map(crearTarjeta).join('');
-        } else {
-            window.location.href = './offline.html';
-        }
+        mostrarGuardados();
     }
 }
 
-function volverAlInicio() {
+function mostrarFavoritos() {
+    vistaActual = 'favoritos';
+    marcarNavInferior('favoritos');
+    const favoritos = leerFavoritos();
+    mostrarVistaLista(favoritos.length ? `Mis favoritos (${favoritos.length})` : 'Mis favoritos');
+    $('peliculas-buscadas').innerHTML = favoritos.length
+        ? favoritos.map(crearTarjeta).join('')
+        : `<div class="mensaje-vacio">
+               <svg><use href="#i-estrella-borde"/></svg>
+               <p>Todavía no guardaste nada.</p>
+               <p>Tocá la <strong>estrella</strong> en el banner o abrí una ficha y elegí <strong>Agregar a favoritos</strong>.</p>
+           </div>`;
+}
+
+function volverAlInicio(recargar = true) {
+    vistaActual = 'inicio';
     document.body.classList.remove('busqueda-activa');
-    document.getElementById('resultados-busqueda').style.display = 'none';
-    document.getElementById('bloques-estandar').style.display    = 'block';
-    const campoBusqueda = document.getElementById('peliculaInput');
+    $('resultados-busqueda').hidden = true;
+    $('bloques-estandar').hidden = false;
+    const campoBusqueda = $('peliculaInput');
     if (campoBusqueda) campoBusqueda.value = '';
-    cargarGrillas();
+    marcarNavInferior(tipoContenido);
+    if (recargar) cargarGrillas();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function cambiarTipo(tipo) {
+    if (!tipo) return;
+    const cambio = tipo !== tipoContenido;
+    tipoContenido = tipo;
+    document.querySelectorAll('.tab-tipo').forEach(b => b.classList.toggle('active', b.dataset.type === tipo));
+    const tituloPopulares = $('titulo-carrusel-1');
+    if (tituloPopulares) tituloPopulares.textContent = tipo === 'movie' ? 'Películas populares' : 'Series populares';
+    volverAlInicio(cambio || vistaActual !== 'inicio');
+}
+
+function irAGenero(genero) {
+    document.querySelectorAll('.cat-item').forEach(c => c.classList.toggle('active', c.dataset.genre === genero));
+    if (vistaActual !== 'inicio') volverAlInicio(false);
+    const destino = genero
+        ? document.querySelector(`.fila-carrusel-seccion[data-seccion="${genero}"]`)
+        : null;
+    const alto = $('header-wrapper').offsetHeight + 12;
+    const top = destino ? destino.getBoundingClientRect().top + window.scrollY - alto : 0;
+    window.scrollTo({ top, behavior: 'smooth' });
+    // Mantiene visible el género elegido en la fila deslizable del teléfono
+    document.querySelector(`.cat-item[data-genre="${genero}"]`)?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+}
+
+// ── MENÚ LATERAL ─────────────────────────────────────────────────────────────
+function abrirMenu() {
+    $('menuFondo').hidden = false;
+    $('menuLateral').setAttribute('aria-hidden', 'false');
+    $('btnMenu').setAttribute('aria-expanded', 'true');
+    document.body.classList.add('menu-abierto');
+    requestAnimationFrame(() => $('menuFondo').classList.add('visible'));
+}
+function cerrarMenu() {
+    $('menuLateral').setAttribute('aria-hidden', 'true');
+    $('btnMenu').setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('menu-abierto');
+    $('menuFondo').classList.remove('visible');
+    setTimeout(() => { $('menuFondo').hidden = true; }, 250);
+}
+
+// ── BUSCADOR A PANTALLA COMPLETA (teléfono y tablet) ─────────────────────────
+function abrirBuscador() {
+    const overlay = $('buscadorOverlay');
+    let recientes = [];
+    try { recientes = JSON.parse(localStorage.getItem(CLAVE_RECIENTES)) || []; } catch { }
+    $('buscadorRecientes').innerHTML =
+        (recientes.length
+            ? `<p class="menu-titulo">Búsquedas recientes</p>` + recientes.map(t => `<button class="chip-reciente" data-reciente="${escaparHTML(t)}">${escaparHTML(t)}</button>`).join('')
+            : '') +
+        `<p class="menu-titulo">Explorar por género</p>` +
+        [['accion', 'Acción'], ['comedia', 'Comedia'], ['animacion', 'Animación'], ['cienciaficcion', 'Ciencia ficción']]
+            .map(([g, n]) => `<button class="chip-reciente chip-genero" data-accion="genero" data-genre="${g}">${n}</button>`).join('');
+    $('inputBuscarOverlay').value = '';
+    mostrarSugerencias('');
+    overlay.hidden = false;
+    document.body.classList.add('modal-abierto', 'buscador-abierto');
+    marcarNavInferior('buscar');
+    requestAnimationFrame(() => {
+        overlay.classList.add('visible');
+        $('inputBuscarOverlay').focus();
+    });
+}
+// Resultados en vivo dentro del buscador (con una pequeña espera para no pedir en cada letra)
+let timerSugerencias = null;
+let controladorSugerencias = null;
+function mostrarSugerencias(texto) {
+    const lista = $('buscadorSugerencias');
+    const ayuda = $('buscadorAyuda');
+    clearTimeout(timerSugerencias);
+    texto = texto.trim();
+    $('buscadorRecientes').hidden = texto.length > 0;
+    if (texto.length < 2) { lista.innerHTML = ''; ayuda.hidden = texto.length > 0; return; }
+    ayuda.hidden = true;
+    timerSugerencias = setTimeout(async () => {
+        if (!navigator.onLine) { lista.innerHTML = '<p class="sugerencia-vacia">Sin conexión. Tocá Buscar para ver lo guardado.</p>'; return; }
+        controladorSugerencias?.abort();
+        controladorSugerencias = new AbortController();
+        lista.innerHTML = '<p class="sugerencia-vacia">Buscando…</p>';
+        const res = await consultarAPI('/search/multi', { query: texto }, controladorSugerencias.signal);
+        if (controladorSugerencias.signal.aborted || res === null) return;
+        const items = res.filter(i => i.media_type !== 'person' && i.poster_path).slice(0, 8);
+        if (!items.length) { lista.innerHTML = `<p class="sugerencia-vacia">No encontramos nada para “${escaparHTML(texto)}”.</p>`; return; }
+        lista.innerHTML = items.map(i => {
+            registrarContenido(i);
+            const anio = (i.release_date || i.first_air_date || '').slice(0, 4);
+            return `<button class="sugerencia" data-ficha="${i.id}">
+                <img src="${URL_MINIATURA}${i.poster_path}" alt="" loading="lazy">
+                <span class="sugerencia-texto">
+                    <strong>${escaparHTML(i.title || i.name)}</strong>
+                    <small>${i.media_type === 'tv' ? 'Serie' : 'Película'}${anio ? ' · ' + anio : ''}${i.vote_average ? ' · ⭐ ' + i.vote_average.toFixed(1) : ''}</small>
+                </span>
+            </button>`;
+        }).join('') + `<button class="sugerencia-todos" type="submit" form="formBuscarOverlay">Ver todos los resultados</button>`;
+    }, 350);
+}
+
+function cerrarBuscador() {
+    const overlay = $('buscadorOverlay');
+    if (overlay.hidden) return;
+    overlay.classList.remove('visible');
+    document.body.classList.remove('modal-abierto', 'buscador-abierto');
+    $('inputBuscarOverlay').blur();
+    marcarNavInferior(vistaActual === 'inicio' ? tipoContenido : vistaActual === 'favoritos' ? 'favoritos' : 'buscar');
+    setTimeout(() => { overlay.hidden = true; }, 200);
+}
+
+// ── AVISOS ───────────────────────────────────────────────────────────────────
+let timerAviso = null;
+function mostrarAviso(texto) {
+    const toast = $('toast');
+    toast.textContent = texto;
+    toast.classList.add('visible');
+    clearTimeout(timerAviso);
+    timerAviso = setTimeout(() => toast.classList.remove('visible'), 2200);
+}
+
+// ── ACCIONES COMPARTIDAS (menú, pie, barra inferior) ────────────────────────
+function ejecutarAccion(accion, dato) {
+    if (accion !== 'buscar' && accion !== 'acerca') cerrarBuscador();
+    switch (accion) {
+        case 'tipo':      cambiarTipo(dato.type); break;
+        case 'genero':    irAGenero(dato.genre ?? ''); break;
+        case 'buscar':    abrirBuscador(); break;
+        case 'favoritos': mostrarFavoritos(); break;
+        case 'acerca':    abrirModal('modalAcerca'); break;
+        case 'instalar':
+            if (eventoInstalacion) {
+                eventoInstalacion.prompt();
+                eventoInstalacion.userChoice.finally(() => { eventoInstalacion = null; $('menuInstalar').hidden = true; });
+            }
+            break;
+    }
+}
+
+// ── ARRANQUE ─────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     cargarGrillas();
+    actualizarContadoresFavoritos();
 
-    document.getElementById('btnPrevHero')?.addEventListener('click', () => {
-        indiceHero = (indiceHero - 1 + peliculasHero.length) % peliculasHero.length;
-        saltarSlide(indiceHero);
+    // Banner: flechas, puntos y deslizar con el dedo
+    $('btnPrevHero')?.addEventListener('click', () => saltarSlide(indiceHero - 1));
+    $('btnNextHero')?.addEventListener('click', () => saltarSlide(indiceHero + 1));
+    $('sliderDots')?.addEventListener('click', e => {
+        const punto = e.target.closest('[data-slide]');
+        if (punto) saltarSlide(Number(punto.dataset.slide));
     });
-    document.getElementById('btnNextHero')?.addEventListener('click', () => {
-        indiceHero = (indiceHero + 1) % peliculasHero.length;
-        saltarSlide(indiceHero);
-    });
+    const hero = $('hero-slider');
+    let toqueX = null, toqueY = null;
+    hero?.addEventListener('touchstart', e => { toqueX = e.touches[0].clientX; toqueY = e.touches[0].clientY; }, { passive: true });
+    hero?.addEventListener('touchend', e => {
+        if (toqueX === null) return;
+        const dx = e.changedTouches[0].clientX - toqueX;
+        const dy = e.changedTouches[0].clientY - toqueY;
+        if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4) saltarSlide(indiceHero + (dx < 0 ? 1 : -1));
+        toqueX = null;
+    }, { passive: true });
 
+    // Carruseles: flechas (PC) y arrastre con mouse
     document.querySelectorAll('.slider-row-wrapper').forEach(filaCarrusel => {
-        const carrusel      = filaCarrusel.querySelector('.carrusel-horizontal-contenedor');
-        const flechaIzq     = filaCarrusel.querySelector('.carrusel-arrow.left');
-        const flechaDer     = filaCarrusel.querySelector('.carrusel-arrow.right');
+        const carrusel  = filaCarrusel.querySelector('.carrusel-horizontal-contenedor');
+        const flechaIzq = filaCarrusel.querySelector('.carrusel-arrow.left');
+        const flechaDer = filaCarrusel.querySelector('.carrusel-arrow.right');
         if (carrusel && flechaIzq && flechaDer) {
             flechaIzq.addEventListener('click', () => carrusel.scrollBy({ left: -carrusel.clientWidth * 0.8, behavior: 'smooth' }));
             flechaDer.addEventListener('click', () => carrusel.scrollBy({ left:  carrusel.clientWidth * 0.8, behavior: 'smooth' }));
@@ -354,65 +626,142 @@ document.addEventListener('DOMContentLoaded', () => {
             posicionInicial = e.pageX - carrusel.offsetLeft;
             scrollInicial   = carrusel.scrollLeft;
         });
-
         const detenerArrastre = () => {
             arrastrando = false;
             carrusel.classList.remove('active-drag');
             setTimeout(() => window.isDragging = false, 50);
         };
-
         carrusel.addEventListener('mouseleave', detenerArrastre);
         carrusel.addEventListener('mouseup',    detenerArrastre);
-
         carrusel.addEventListener('mousemove', e => {
             if (!arrastrando) return;
             e.preventDefault();
-            const posicionActual   = e.pageX - carrusel.offsetLeft;
-            const desplazamiento   = posicionActual - posicionInicial;
+            const desplazamiento = (e.pageX - carrusel.offsetLeft) - posicionInicial;
             if (Math.abs(desplazamiento) > 5) window.isDragging = true;
             carrusel.scrollLeft = scrollInicial - desplazamiento;
         });
     });
 
-    document.querySelectorAll('.cat-item').forEach(categoría => {
-        categoría.addEventListener('click', e => {
-            document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
-            e.target.classList.add('active');
-            const generoSeleccionado = e.target.dataset.genre;
-            if (!generoSeleccionado) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
-            const seccionGenero = document.getElementById(`riel-${generoSeleccionado}`)?.closest('.fila-carrusel-seccion');
-            if (seccionGenero) window.scrollTo({ top: seccionGenero.getBoundingClientRect().top + window.pageYOffset - 140, behavior: 'smooth' });
-        });
+    // Un solo manejador de clics para todo lo que se genera dinámicamente
+    document.addEventListener('click', e => {
+        const tarjeta = e.target.closest('.peli-card-horizontal:not(.esqueleto)');
+        if (tarjeta) { abrirFicha(tarjeta.dataset.id); return; }
+
+        const btnFicha = e.target.closest('[data-ficha]');
+        if (btnFicha) { abrirFicha(btnFicha.dataset.ficha); return; }
+
+        const btnFav = e.target.closest('[data-fav]');
+        if (btnFav) {
+            const id = btnFav.dataset.fav;
+            const ahora = alternarFavorito(id);
+            document.querySelectorAll(`[data-fav="${id}"]`).forEach(b => pintarBotonFav(b, ahora));
+            if (vistaActual === 'favoritos') mostrarFavoritos();
+            return;
+        }
+
+        const reciente = e.target.closest('[data-reciente]');
+        if (reciente) { cerrarBuscador(); buscarContenido(reciente.dataset.reciente); return; }
+
+        const cerrar = e.target.closest('[data-cerrar]');
+        if (cerrar) { cerrarModal(cerrar.dataset.cerrar); return; }
+
+        const conAccion = e.target.closest('[data-accion]');
+        if (conAccion) {
+            if (conAccion.closest('#menuLateral')) cerrarMenu();
+            if (conAccion.closest('#buscadorOverlay')) cerrarBuscador();
+            ejecutarAccion(conAccion.dataset.accion, conAccion.dataset);
+        }
     });
 
-    document.querySelectorAll('.tab-tipo').forEach(botonTipo => {
-        botonTipo.addEventListener('click', e => {
-            document.querySelectorAll('.tab-tipo').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            tipoContenido = e.target.dataset.type;
-            const tituloPopulares = document.getElementById('titulo-carrusel-1');
-            if (tituloPopulares) tituloPopulares.textContent = tipoContenido === 'movie' ? 'Populares en Cine' : 'Series Populares';
-            volverAlInicio();
-        });
+    // Tarjetas con teclado
+    document.addEventListener('keydown', e => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.peli-card-horizontal')) {
+            e.preventDefault();
+            abrirFicha(e.target.dataset.id);
+        }
+        if (e.key === 'Escape') {
+            const fichaAbierta = !$('modalFicha').hidden || !$('modalAcerca').hidden;
+            cerrarModal('modalFicha');
+            cerrarModal('modalAcerca');
+            if (!fichaAbierta) cerrarBuscador();
+            if (document.body.classList.contains('menu-abierto')) cerrarMenu();
+        }
     });
 
-    const campoBusqueda = document.getElementById('peliculaInput');
-    document.getElementById('buscarBtn')?.addEventListener('click', () => buscarContenido(campoBusqueda?.value));
-    campoBusqueda?.addEventListener('keypress', e => e.key === 'Enter' && buscarContenido(campoBusqueda.value));
+    // Géneros y tipo de contenido
+    document.querySelectorAll('.cat-item').forEach(c => c.addEventListener('click', () => irAGenero(c.dataset.genre)));
+    document.querySelectorAll('.tab-tipo').forEach(b => b.addEventListener('click', () => cambiarTipo(b.dataset.type)));
 
-    ['btnVolverHome', 'brand-logo', 'nav-root'].forEach(idElemento => {
-        document.getElementById(idElemento)?.addEventListener('click', volverAlInicio);
+    // Buscador de PC
+    $('formBuscarDesktop')?.addEventListener('submit', e => {
+        e.preventDefault();
+        buscarContenido($('peliculaInput').value);
     });
 
-    document.getElementById('nav-buscar-mob')?.addEventListener('click', () => {
-        const textoBusqueda = prompt('¿Qué deseas buscar?');
-        if (textoBusqueda) buscarContenido(textoBusqueda);
+    // Buscador a pantalla completa
+    $('btnBuscarHeader')?.addEventListener('click', abrirBuscador);
+    $('btnCerrarBuscador')?.addEventListener('click', cerrarBuscador);
+    $('inputBuscarOverlay')?.addEventListener('input', e => mostrarSugerencias(e.target.value));
+    $('formBuscarOverlay')?.addEventListener('submit', e => {
+        e.preventDefault();
+        const texto = $('inputBuscarOverlay').value;
+        if (!texto.trim()) return;
+        cerrarBuscador();
+        buscarContenido(texto);
     });
 
-    document.getElementById('btnCerrarModal')?.addEventListener('click', () => {
-        document.getElementById('modalFicha').style.display = 'none';
+    // Favoritos desde la cabecera
+    $('btnFavoritosHeader')?.addEventListener('click', () => { cerrarBuscador(); mostrarFavoritos(); });
+
+    // Logo y "Volver al inicio"
+    $('brand-logo')?.addEventListener('click', e => { e.preventDefault(); cerrarBuscador(); volverAlInicio(vistaActual !== 'inicio'); });
+
+    // Géneros: también se pueden arrastrar con el mouse
+    const rielGeneros = document.querySelector('.generos-riel');
+    let arrastreGen = null;
+    rielGeneros?.addEventListener('mousedown', e => { arrastreGen = { x: e.pageX, s: rielGeneros.scrollLeft, movido: false }; });
+    window.addEventListener('mouseup', () => { setTimeout(() => { arrastreGen = null; }, 0); });
+    rielGeneros?.addEventListener('mousemove', e => {
+        if (!arrastreGen) return;
+        const dx = e.pageX - arrastreGen.x;
+        if (Math.abs(dx) > 4) arrastreGen.movido = true;
+        rielGeneros.scrollLeft = arrastreGen.s - dx;
     });
-    document.getElementById('modalFicha')?.addEventListener('click', e => {
-        if (e.target.id === 'modalFicha') document.getElementById('modalFicha').style.display = 'none';
+    rielGeneros?.addEventListener('click', e => { if (arrastreGen?.movido) { e.stopPropagation(); e.preventDefault(); } }, true);
+    $('btnVolverHome')?.addEventListener('click', () => volverAlInicio(false));
+
+    // Menú lateral
+    $('btnMenu')?.addEventListener('click', abrirMenu);
+    $('btnCerrarMenu')?.addEventListener('click', cerrarMenu);
+    $('menuFondo')?.addEventListener('click', cerrarMenu);
+
+    // Barra inferior del teléfono
+    document.querySelectorAll('.nav-inf-item').forEach(b => b.addEventListener('click', () => {
+        const destino = b.dataset.nav;
+        if (destino !== 'buscar') cerrarBuscador();
+        if (destino === 'buscar') abrirBuscador();
+        else if (destino === 'favoritos') mostrarFavoritos();
+        else cambiarTipo(destino);
+    }));
+
+    // Ficha y "Acerca de": cerrar con la X o tocando afuera
+    $('btnCerrarModal')?.addEventListener('click', () => cerrarModal('modalFicha'));
+    ['modalFicha', 'modalAcerca'].forEach(id => {
+        $(id)?.addEventListener('click', e => { if (e.target.id === id) cerrarModal(id); });
+    });
+
+    // Instalación como app (aparece en el menú cuando el navegador lo permite)
+    window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault();
+        eventoInstalacion = e;
+        $('menuInstalar').hidden = false;
+    });
+    window.addEventListener('appinstalled', () => { $('menuInstalar').hidden = true; mostrarAviso('MonoFilms quedó instalada'); });
+
+    // Si cambia mucho el ancho (girar la tablet), se piden fondos del tamaño correcto
+    let anchoPrevio = esPantallaChica();
+    window.addEventListener('resize', () => {
+        const ahora = esPantallaChica();
+        if (ahora !== anchoPrevio) { anchoPrevio = ahora; montarHero(); }
     });
 });
