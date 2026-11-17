@@ -263,6 +263,7 @@ body.menu-abierto .menu-lateral { transform: none; box-shadow: -20px 0 50px rgba
 }
 .btn-explorar-ficha:hover { background: var(--accent); color: var(--bg-base); border-color: var(--accent); }
 .slide-acciones { display: flex; gap: 12px; align-items: stretch; }
+.btn-explorar-ficha, .btn-hero-fav { white-space: nowrap; }
 .btn-hero-fav {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     background: rgba(4,7,20,.35); color: #fff; border: 1px solid rgba(255,255,255,.25);
@@ -602,6 +603,9 @@ body.menu-abierto .menu-lateral { transform: none; box-shadow: -20px 0 50px rgba
 /* Teléfonos muy angostos */
 @media (max-width: 360px) {
     :root { --cols: 2.15; }
+    .btn-explorar-ficha, .btn-hero-fav { padding-left: 8px; padding-right: 8px; font-size: 0.78rem; }
+    .navbar-inner { padding-left: 12px; }
+    .logo-texto { font-size: 1.4rem; }
 }
 
 /* Pantallas bajas (teléfono acostado): el banner no ocupa toda la altura */
