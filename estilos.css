@@ -184,7 +184,7 @@ body.menu-abierto .menu-lateral { transform: none; box-shadow: -20px 0 50px rgba
 
 /* ── BUSCADOR A PANTALLA COMPLETA ──────────────────────────────────────────── */
 .buscador-overlay {
-    position: fixed; inset: 0; z-index: 2600; background: rgba(4,7,20,0.98);
+    position: fixed; inset: 0; z-index: 2600; background: var(--bg-base);
     padding: calc(12px + env(safe-area-inset-top)) 16px 0;
     opacity: 0; transition: opacity 0.2s ease;
     display: flex; flex-direction: column; align-items: center;
