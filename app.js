@@ -190,7 +190,7 @@ function montarHero() {
             : (pelicula.backdrop_path ? `${URL_BACKDROP}${pelicula.backdrop_path}` : '');
         const fav = esFavorito(pelicula.id);
         return `
-            <div class="slide-item ${indice === indiceHero ? 'active' : ''}" aria-hidden="${indice === indiceHero ? 'false' : 'true'}">
+            <div class="slide-item ${indice === indiceHero ? 'active' : ''}" ${indice === indiceHero ? '' : 'inert'}>
                 <img src="${urlFondo}" class="slide-backdrop" alt="" ${indice === 0 ? 'fetchpriority="high"' : 'loading="lazy"'}>
                 <div class="slide-overlay">
                     <div class="slide-info-block">
@@ -237,7 +237,8 @@ function saltarSlide(indice) {
 function actualizarHero() {
     document.querySelectorAll('.slide-item').forEach((slide, i) => {
         slide.classList.toggle('active', i === indiceHero);
-        slide.setAttribute('aria-hidden', i === indiceHero ? 'false' : 'true');
+        // inert (en vez de aria-hidden) evita el aviso de Chrome si el botón del cartel que se oculta tenía el foco
+        slide.inert = i !== indiceHero;
     });
     document.querySelectorAll('.dot').forEach((punto, i) => punto.classList.toggle('active', i === indiceHero));
 }
@@ -475,13 +476,14 @@ function irAGenero(genero) {
 // ── MENÚ LATERAL ─────────────────────────────────────────────────────────────
 function abrirMenu() {
     $('menuFondo').hidden = false;
-    $('menuLateral').setAttribute('aria-hidden', 'false');
+    $('menuLateral').inert = false;
     $('btnMenu').setAttribute('aria-expanded', 'true');
     document.body.classList.add('menu-abierto');
     requestAnimationFrame(() => $('menuFondo').classList.add('visible'));
 }
 function cerrarMenu() {
-    $('menuLateral').setAttribute('aria-hidden', 'true');
+    if ($('menuLateral').contains(document.activeElement)) $('btnMenu').focus();
+    $('menuLateral').inert = true;
     $('btnMenu').setAttribute('aria-expanded', 'false');
     document.body.classList.remove('menu-abierto');
     $('menuFondo').classList.remove('visible');
